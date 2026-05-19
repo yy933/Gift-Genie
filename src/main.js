@@ -1,5 +1,5 @@
 import "./style.css";
-import { autoResizeTextarea, checkEnvironment, setLoading } from "./utils.js";
+import { autoResizeTextarea, setLoading } from "./utils.js";
 import { fetchBotResponse } from "./services/api.js";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
@@ -134,5 +134,5 @@ async function handleGiftRequest(e) {
   }
 }
 
-checkEnvironment();
+
 start();

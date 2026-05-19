@@ -1,41 +1,54 @@
-import Groq from "groq-sdk";
-
-const apiKey = import.meta.env.VITE_AI_KEY;
-const model = import.meta.env.VITE_AI_MODEL;
-const groq = new Groq({ apiKey, dangerouslyAllowBrowser: true });
-/**
- * API service function to fetch bot response from Groq API
- * @param {Array} messages - Chat history
- * @param {Function} onChunk - Callback function to handle each new chunk (for updating frontend UI)
- */
 export async function fetchBotResponse(messages, onChunk) {
-  if (!apiKey) throw new Error("Missing API key.");
-
   try {
     let reply = "";
     let finalUsage = null;
 
-    const completion = await groq.chat.completions.create({
-      model: model,
-      temperature: 0.7,
-      messages: messages,
-      max_completion_tokens: 300,
-      stream: true,
-      stream_options: { include_usage: true },
+    // send request to backend API route with the chat history and new user prompt
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages }),
     });
 
-    for await (const chunk of completion) {
-      const content = chunk.choices[0]?.delta?.content || "";
-      reply += content;
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
-      // execute the callback function to update frontend UI with the new chunk
-      if (content && typeof onChunk === "function") {
-        onChunk(reply);
-      }
+    // Read ReadableStream received from the backend
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
 
-      // check if usage info is included in the chunk and update finalUsage
-      if (chunk.usage) {
-        finalUsage = chunk.usage;
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      // Decode the chunk and parse the custom SSE format defined in the backend, which may contain either content or usage data
+      const chunkText = decoder.decode(value);
+
+      // Read the chunk line by line, looking for lines that start with "data: " which contain JSON strings with either content or usage information, and update the reply and finalUsage variables accordingly. If onChunk callback is provided, call it with the updated reply for real-time UI updates in the frontend.
+      const lines = chunkText.split("\n");
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const jsonStr = line.slice(6);
+          try {
+            const data = JSON.parse(jsonStr);
+
+            // address content updates
+            if (data.content) {
+              reply += data.content;
+              if (typeof onChunk === "function") {
+                onChunk(reply); // real-time UI updates
+              }
+            }
+
+            // address usage metrics
+            if (data.usage) {
+              finalUsage = data.usage;
+            }
+          } catch (e) {
+            console.error("Error parsing JSON:", e);
+          }
+        }
       }
     }
 
@@ -44,7 +57,7 @@ export async function fetchBotResponse(messages, onChunk) {
       usage: finalUsage,
     };
   } catch (error) {
-    console.error("API Service Error:", error);
+    console.error("Frontend API Service Error:", error);
     throw error;
   }
 }
