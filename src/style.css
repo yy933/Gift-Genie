@@ -35,7 +35,11 @@
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-family: "Inter", -apple-system, system-ui, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    system-ui,
+    sans-serif;
   line-height: 1.6;
   overflow-x: hidden;
 }
@@ -258,6 +262,13 @@ textarea::placeholder {
   margin-bottom: 0.2em;
   font-weight: 700;
   color: var(--accent-primary);
+}
+
+.error-box {
+  color: #ff4d4f;
+  padding: 10px;
+  border: 1px solid #ff4d4f;
+  border-radius: 4px;
 }
 
 /* 

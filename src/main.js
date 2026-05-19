@@ -26,7 +26,6 @@ function start() {
   userInput.addEventListener("input", () => autoResizeTextarea(userInput));
   giftForm.addEventListener("submit", handleGiftRequest);
 }
-// environment variables
 
 async function handleGiftRequest(e) {
   // Prevent default form submission
@@ -65,8 +64,19 @@ async function handleGiftRequest(e) {
       console.log("=== Tokens Usage ===", usage.total_tokens);
     }
   } catch (error) {
-    console.error("SDK error:", error);
-    if (outputContent) outputContent.textContent = "Error: " + error.message;
+    console.error("API Service Error:", error);
+    // Remove the last user message from history on error
+    chatHistory.pop();
+    if (outputContent) {
+      outputContent.innerHTML = `
+        <div class="error-box">
+          Oops!There was something wrong with Gift Genie...<br>
+          <small>${error.message || "Please check your network connection or try again later"}</small>
+        </div>
+      `;
+    }
+    // Restore user input on error
+    userInput.value = userPrompt;
   } finally {
     // Clear loading state
     setLoading(false);
