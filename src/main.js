@@ -14,8 +14,8 @@ const chatHistory = [
   {
     role: "system",
     content: `You are the Gift Genie! Make your gift suggestions thoughtful and practical.
-          - STRICT RULE:  Your response must be under 100 words. 
-          - FORMAT: Provide 2-3 direct bullet points only.
+          - STRICT RULE:  Your response must be under 200 words. 
+          - FORMAT: Provide 3-5 direct bullet points only.
           - MARKDOWN RULE: Start each bullet point on a NEW line using the standard hyphen (-) character. Do NOT compress them into a single line.
           - PROHIBITED: Do NOT include any introductory phrases, setup, or concluding remarks. Only output gift suggestions.`,
   },
@@ -46,8 +46,19 @@ async function handleGiftRequest(e) {
     // Add user prompt to chat history
     chatHistory.push({ role: "user", content: userPrompt });
 
-    // call API and get response
-    const { reply, usage } = await fetchBotResponse(chatHistory);
+    // call API and get response with a callback function to handle streaming chunks for real-time UI updates
+    const { reply, usage } = await fetchBotResponse(
+      chatHistory,
+      (currentText) => {
+        // this callback function will be called for each new chunk received from the API, with currentText being the accumulated response so far
+        if (outputContent) {
+          // format the currentText by replacing bullet points with newlines and hyphens, then parse it as markdown and update the outputContent's innerHTML
+          let formatted = currentText.replace(/•/g, "\n- ");
+          formatted = DOMPurify.sanitize(formatted);
+          outputContent.innerHTML = marked.parse(formatted);
+        }
+      },
+    );
 
     // Update UI
     if (outputContent && reply) {
@@ -59,9 +70,13 @@ async function handleGiftRequest(e) {
     // add bot response to chat history
     chatHistory.push({ role: "assistant", content: reply });
 
-    // Log token usage (can be refactor into a separate function)
+    // Log token usage
     if (usage) {
-      console.log("=== Tokens Usage ===", usage.total_tokens);
+      console.log("=== 🔍 Stream Token Detail Usage 🔍 ===");
+      console.log("1. Input/Prompt Token Usage:", usage.prompt_tokens);
+      console.log("2. Output/Completion Token Usage:", usage.completion_tokens);
+      console.log("-----------------------------------------");
+      console.log("=== Stream Token Total Usage ===", usage.total_tokens);
     }
   } catch (error) {
     console.error("API Service Error:", error);
