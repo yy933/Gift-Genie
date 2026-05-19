@@ -1,6 +1,6 @@
 import "./style.css";
 import { autoResizeTextarea, checkEnvironment, setLoading } from "./utils.js";
-import Groq from "groq-sdk";
+import { fetchBotResponse } from "./services/api.js";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 
@@ -27,57 +27,42 @@ function start() {
   giftForm.addEventListener("submit", handleGiftRequest);
 }
 // environment variables
-const apiKey = import.meta.env.VITE_AI_KEY;
-const baseURL = import.meta.env.VITE_AI_URL;
-const model = import.meta.env.VITE_AI_MODEL;
 
-const groq = new Groq({ apiKey, dangerouslyAllowBrowser: true });
 async function handleGiftRequest(e) {
   // Prevent default form submission
   e.preventDefault();
+
   // Get user input, trim whitespace, exit if empty
   const userPrompt = userInput.value.trim();
   if (!userPrompt) return;
+
   // Set loading state
   setLoading(true);
 
-  if (!apiKey) {
-    console.error(
-      "Error: Missing API key. Please set the VITE_AI_KEY environment variable and restart the server.",
-    );
-  }
+  // clear the element before sending request
+  if (outputContent) outputContent.textContent = "";
 
-  if (outputContent) outputContent.textContent = ""; // clear the element before sending request
   // Make API request
   try {
+    // Add user prompt to chat history
     chatHistory.push({ role: "user", content: userPrompt });
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
-      messages: chatHistory,
-      max_tokens: 200,
-    });
-    console.log(completion);
-    const output = completion.choices[0]?.message?.content;
-    const outputObj = { role: "assistant", content: output };
 
-    if (outputContent && output) {
-      const formattedOutput = output.replace(/•/g, "\n- ");
+    // call API and get response
+    const { reply, usage } = await fetchBotResponse(chatHistory);
+
+    // Update UI
+    if (outputContent && reply) {
+      const formattedOutput = reply.replace(/•/g, "\n- ");
       const sanitizedOutput = DOMPurify.sanitize(formattedOutput);
       outputContent.innerHTML = marked.parse(sanitizedOutput);
     }
 
-    chatHistory.push(outputObj);
-    console.log("Chat History: ", chatHistory);
+    // add bot response to chat history
+    chatHistory.push({ role: "assistant", content: reply });
 
-    // Log token usage
-    if (completion.usage) {
-      console.log("=== Tokens Usage ===");
-      console.log("Input (Prompt) Token:", completion.usage.prompt_tokens);
-      console.log(
-        "Output (Completion) Token:",
-        completion.usage.completion_tokens,
-      );
-      console.log("Total Token:", completion.usage.total_tokens);
+    // Log token usage (can be refactor into a separate function)
+    if (usage) {
+      console.log("=== Tokens Usage ===", usage.total_tokens);
     }
   } catch (error) {
     console.error("SDK error:", error);
