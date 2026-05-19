@@ -19,7 +19,7 @@ export async function fetchBotResponse(messages, onChunk) {
       model: model,
       temperature: 0.7,
       messages: messages,
-      max_completion_tokens: 200,
+      max_completion_tokens: 300,
       stream: true,
       stream_options: { include_usage: true },
     });

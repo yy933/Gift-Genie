@@ -9,15 +9,34 @@ const giftForm = document.getElementById("gift-form");
 const userInput = document.getElementById("user-input");
 const outputContent = document.getElementById("output-content");
 
+// Track last request time for rate limiting
+let lastRequestTime = 0;
+
 const chatHistory = [
   // Initialize messages array with system prompt
   {
     role: "system",
-    content: `You are the Gift Genie! Make your gift suggestions thoughtful and practical.
-          - STRICT RULE:  Your response must be under 200 words. 
-          - FORMAT: Provide 3-5 direct bullet points only.
-          - MARKDOWN RULE: Start each bullet point on a NEW line using the standard hyphen (-) character. Do NOT compress them into a single line.
-          - PROHIBITED: Do NOT include any introductory phrases, setup, or concluding remarks. Only output gift suggestions.`,
+    content: `You are the Gift Genie! Your ONLY job is to provide gift suggestions based on the user's explicit intent to buy or give a gift.
+
+    - 🚨 STRICT BOUNDARY RULE (CRITICAL): 
+      - The user MUST be asking for a gift recommendation, shopping advice, or ideas for a celebration/holiday (e.g., "What should I buy for...", "Gift ideas for...").
+      - If the user is asking a general knowledge question, asking for facts, or just chatting (e.g., "Who is Van Gogh?", "What is the capital of...", "Write a code"), you MUST refuse to answer. Even if the topic could theoretically be turned into a gift, you MUST refuse if the user did not explicitly mention "gift", "present", "buy", or "celebrate".
+
+    - 🚨 REFUSAL FORMAT: 
+      - If the boundary rule is violated, reply with EXACTLY this string: "REFUSE" and nothing else. Do not generate any gift sections.
+
+    - OUTPUT STRUCTURE (Only if inside scope):
+      1. GIFT SUGGESTIONS SECTION:
+        - Provide 1-2 distinct gift suggestions.
+        - For each gift, include a clear Heading, a short explanation, and 1-2 bullet points.
+        - MARKDOWN RULE: Start each bullet point on a NEW line using the standard hyphen (-) character.
+      2. FOLLOW-UP SECTION:
+        - You MUST end your response with an H2 heading titled "## Questions for you".
+        - Under this heading, provide 1-2 direct follow-up questions to help improve the gift suggestions.
+
+    - CONSTRAINTS:
+      - STRICT RULE: Total response must be under 500 words.
+      - Do NOT include any introductory conversational phrases or setup. Start directly with the first gift heading.`,
   },
 ];
 
@@ -30,6 +49,16 @@ function start() {
 async function handleGiftRequest(e) {
   // Prevent default form submission
   e.preventDefault();
+
+  const now = Date.now();
+  if (now - lastRequestTime < 3000) {
+    // Prevent requests that are too close together (e.g., within 3 seconds) to avoid overwhelming the API and ensure better response quality.
+    alert(
+      "Gift Genie is thinking... Please wait a moment before asking again.",
+    );
+    return;
+  }
+  lastRequestTime = now;
 
   // Get user input, trim whitespace, exit if empty
   const userPrompt = userInput.value.trim();
@@ -61,6 +90,13 @@ async function handleGiftRequest(e) {
     );
 
     // Update UI
+    if (reply.trim() === "REFUSE") {
+      // if the API response is REFUSE, remove the last user message from history and show refusal message in UI, then exit without adding REFUSE to chat history
+      chatHistory.pop();
+      outputContent.innerHTML = `Gift Genie: I'm sorry, but I can only provide gift suggestions. If you have a specific gift-related question or need ideas for a celebration, feel free to ask! 🎁✨`;
+      return; // exit the function, do not proceed to update the outputContent with REFUSE or add it to chat history
+    }
+
     if (outputContent && reply) {
       const formattedOutput = reply.replace(/•/g, "\n- ");
       const sanitizedOutput = DOMPurify.sanitize(formattedOutput);
