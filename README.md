@@ -2,6 +2,8 @@
 
 Gift Genie is a lightweight AI-powered web app that helps users find gift ideas from a simple prompt. The frontend collects input, sends it to a serverless AI endpoint, and streams the recommendation back in real time.
 
+**Live demo**: https://gift-genie-zeta.vercel.app/
+
 ## Features
 
 - Clean, playful gift recommendation UI with a "Rub the Lamp" button
